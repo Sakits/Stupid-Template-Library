@@ -7,7 +7,6 @@
 
 namespace sjtu
 {
-
 	/**
  * a container like std::priority_queue which is a heap internal.
  */
@@ -21,11 +20,12 @@ namespace sjtu
 			friend class priority_queue;
 
 		private:
+			int Dis;
 			T Val;
 			Node *Left, *Right;
 
 		public:
-			Node(const T &_Val) : Val(_Val), Left(nullptr), Right(nullptr) {}
+			Node(const T &_Val) : Val(_Val), Left(nullptr), Right(nullptr), Dis(0) {}
 
 			~Node()
 			{
@@ -68,7 +68,8 @@ namespace sjtu
 		 */
 		priority_queue &operator=(const priority_queue &other)
 		{
-			if (this == &other) return *this;
+			if (this == &other)
+				return *this;
 			Size = other.Size;
 			cmp = other.cmp;
 			delete Root;
@@ -82,7 +83,8 @@ namespace sjtu
 		 */
 		const T &top() const
 		{
-			if (empty()) throw container_is_empty();
+			if (empty())
+				throw container_is_empty();
 			return Root->Val;
 		}
 
@@ -96,8 +98,10 @@ namespace sjtu
 
 			x->Right = Heap_Merge(x->Right, y);
 
-			// if (rand() & 1)
+			if (!x->Left || x->Left->Dis < x->Right->Dis)
 				std ::swap(x->Left, x->Right);
+
+			x->Dis = x->Right ? x->Right->Dis + 1 : 0;
 
 			return x;
 		}
@@ -109,7 +113,7 @@ namespace sjtu
 		void push(const T &e)
 		{
 			Size++;
-			Node* NewNode = new Node(e);
+			Node *NewNode = new Node(e);
 			Root = Heap_Merge(Root, NewNode);
 		}
 		/**
@@ -119,11 +123,14 @@ namespace sjtu
 		 */
 		void pop()
 		{
-			if (empty()) throw container_is_empty();
+			if (empty())
+				throw container_is_empty();
+				
 			Size--;
 			Node *Left = Root->Left, *Right = Root->Right;
 			Root->Left = Root->Right = nullptr;
 			delete Root;
+
 			Root = Heap_Merge(Left, Right);
 		}
 		/**
