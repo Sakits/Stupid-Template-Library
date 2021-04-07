@@ -400,6 +400,52 @@ public:
                 x->Col = Black;
         }
     }
+
+	Node* get_pre(const Node* &x)
+    {
+		if (x == Begin)
+			return nullptr;
+
+        Node* y = x;
+		if (y->LT)
+		{
+			y = y->LT;
+			while (y->RT)
+				y = y->RT;
+		}
+		else
+		{
+			while(y->Fa && y->Fa->LT == y)
+				y = y->Fa;
+
+			y = (y == Root) ? nullptr : y->Fa;
+		}
+
+		return y;
+    }
+
+	Node* get_next(const Node* &x)
+    {
+		if (x == End)
+			return nullptr;
+
+        Node* y = x;
+		if (y->RT)
+		{
+			y = y->RT;
+			while (y->LT)
+				y = y->LT;
+		}
+		else
+		{
+			while(y->Fa && y->Fa->RT == y)
+				y = y->Fa;
+
+			y = (y == Root) ? End : y->Fa;
+		}
+
+		return y;
+    }
 };
 
 
@@ -442,46 +488,6 @@ public:
 		}
 		iterator(const iterator &other) {
 			// TODO
-		}
-
-		void get_pre()
-		{
-			if (pos == Tr.Begin)
-				pos = nullptr;
-
-			if (pos->LT)
-			{
-				pos = pos->LT;
-				while (pos->RT)
-					pos = pos->RT;
-			}
-			else
-			{
-				while(pos->Fa && pos->Fa->LT == pos)
-					pos = pos->Fa;
-
-				pos = (pos == Tr.Root) ? nullptr : pos->Fa;
-			}
-		}
-
-		void get_next()
-		{
-			if (pos == Tr.End)
-				pos = nullptr;
-
-			if (pos->RT)
-			{
-				pos = pos->RT;
-				while (pos->LT)
-					pos = pos->LT;
-			}
-			else
-			{
-				while(pos->Fa && pos->Fa->RT == pos)
-					pos = pos->Fa;
-
-				pos = (pos == Root) ? Tr.End : pos->Fa;
-			}
 		}
 		/**
 		 * TODO iter++
