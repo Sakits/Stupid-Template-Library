@@ -1,3 +1,4 @@
+
 #ifndef SJTU_EXCEPTIONS_HPP
 #define SJTU_EXCEPTIONS_HPP
 

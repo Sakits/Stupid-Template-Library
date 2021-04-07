@@ -1,9 +1,49 @@
+#ifndef SJTU_EXCEPTIONS_HPP
+#define SJTU_EXCEPTIONS_HPP
+
+#include <cstddef>
+#include <cstring>
+#include <string>
+
+namespace sjtu {
+
+class exception {
+protected:
+	const std::string variant = "";
+	std::string detail = "";
+public:
+	exception() {}
+	exception(const exception &ec) : variant(ec.variant), detail(ec.detail) {}
+	virtual std::string what() {
+		return variant + " " + detail;
+	}
+};
+
+class index_out_of_bound : public exception {
+	/* __________________________ */
+};
+
+class runtime_error : public exception {
+	/* __________________________ */
+};
+
+class invalid_iterator : public exception {
+	/* __________________________ */
+};
+
+class container_is_empty : public exception {
+	/* __________________________ */
+};
+}
+
+#endif
+
 #ifndef SJTU_PRIORITY_QUEUE_HPP
 #define SJTU_PRIORITY_QUEUE_HPP
 
 #include <cstddef>
 #include <functional>
-#include "exceptions.hpp"
+// #include "exceptions.hpp"
 
 namespace sjtu
 {
@@ -20,12 +60,12 @@ namespace sjtu
 			friend class priority_queue;
 
 		private:
-			int Dis;
+		
 			T Val;
 			Node *Left, *Right;
 
 		public:
-			Node(const T &_Val) : Val(_Val), Left(nullptr), Right(nullptr), Dis(0) {}
+			Node(const T &_Val) : Val(_Val), Left(nullptr), Right(nullptr) {}
 
 			~Node()
 			{
@@ -98,10 +138,8 @@ namespace sjtu
 
 			x->Right = Heap_Merge(x->Right, y);
 
-			if (!x->Left || x->Left->Dis < x->Right->Dis)
+			
 				std ::swap(x->Left, x->Right);
-
-			x->Dis = x->Right ? x->Right->Dis + 1 : 0;
 
 			return x;
 		}

@@ -11,18 +11,19 @@ def run_Case(id):
     os.system('pwd')
     os.system('g++ -O2 -std=c++11 code.cpp -I../.. -o code')
     os.system('./code > my.out')
-    return os.system('diff -w my.out answer.txt') == 0
+    return os.system('diff -w my.out answer.txt > log.out') == 0
 
 
 def run_Case_memcheck(id):
     os.system('g++ -O2 -std=c++11 code.cpp -I../.. -o code')
     os.system('./code > my.out')
-    return os.system('diff -w my.out answer.txt') == 0
+    return os.system('diff -w my.out answer.txt > log.out') == 0
 
 
 def Clean():
     os.system('rm my.out')
     os.system('rm code')
+    os.system('rm log.out')
 
 
 def run():
@@ -37,7 +38,8 @@ def run():
             Clean()
         else:
             print('WA on Case ' + name[i])
-            Clean()
+            os.system('./code')
+            # Clean()
             break
 
         os.chdir(os.getcwd() + '/..')
@@ -49,7 +51,7 @@ def run():
             Clean()
         else:
             print('WA on Case_memcheck ' + name[i])
-            Clean()
+            # Clean()
             break
 
         os.chdir(os.getcwd() + '/..')
