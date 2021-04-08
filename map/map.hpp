@@ -1,10 +1,6 @@
-/**
- * implement a container like std::map
- */
 #ifndef SJTU_MAP_HPP
 #define SJTU_MAP_HPP
 
-// only for std::less<T>
 #include <functional>
 #include <cstddef>
 #include "utility.hpp"
@@ -26,51 +22,80 @@ template<
 class RBTree
 {
 	friend class map<KeyType, T, Compare>;
-    static const int inf = (1ll << 31) - 1;
+	typedef pair<const KeyType, T> value_type;
 private:
-    enum ColorSet {Red, Black};
-    Compare cmp;
-
-    struct Node
+	struct Node
     {
-        typedef std :: pair<const KeyType, T> value_type;
-
-		value_type ValueField;
+		value_type* ValueField;
         int Size;
         Node *LT, *RT, *Fa;
         bool Col;
 
-        const KeyType Key() const {return ValueField.first;}
+        const KeyType Key() const {return ValueField->first;}
 
-        T &Val() {return ValueField.second;}
+        T &Val() {return ValueField->second;}
 
-		int get_size() {return Size;}
+		const int get_size() const {return Size;}
 
-		Node() 
+		Node()
 		{
-			Size = 0; 
-			Col = Red;
+			ValueField = nullptr;
 			LT = RT = Fa = nullptr;
+			Size = 1;
+			Col = Red;
 		}
 
-        Node(KeyType _Key, T _Val) : ValueField(make_pair(_Key, _Val))
+		Node(const Node &other) : Size(other.Size), Col(other.Col)
+		{
+			LT = RT = Fa = nullptr;
+			ValueField = other.ValueField ? new value_type(*other.ValueField) : nullptr;
+		}
+
+        Node(const KeyType &_Key, const T &_Val)
         {
+			ValueField = new value_type(_Key, _Val);
             Size = 1;
             Col = Red;
             LT = RT = Fa = nullptr;
         }
 
-        ~Node() {delete LT; delete RT;}
+        ~Node() {delete LT; delete RT; delete ValueField;}
 
     };
+
+    enum ColorSet {Red, Black};
+    Compare cmp;
 
 public:
 	Node *Root, *Begin, *End;
 
-    RBTree() {Root = nullptr; Begin = End;}
+    RBTree() 
+	{
+		Root = Begin = End = new Node;
+		Root->Col = Black;
+	}
     ~RBTree() {delete Root;}
 
-	void copy(Node *&x, const Node *const &y)
+	bool cmpnode(const Node * const &a, const Node * const &b)
+	{
+		if (a == End) return 0;
+		if (b == End) return 1;
+		return cmp(a->Key(), b->Key());
+	}
+
+	bool cmpnode(const Node * const &a, const KeyType &bKey)
+	{
+		if (a == End) return 0;
+		return cmp(a->Key(), bKey);
+	}
+
+	bool cmpnode(const KeyType &aKey, const Node * const &b)
+	{
+		if (b == End) return 1;
+		return cmp(aKey, b->Key());
+	}
+
+	void copy(Node *&x, Node *const &y, Node *const &Fa, Node *&Begin, Node * &End)
 	{
 		if (!y)
 		{
@@ -79,30 +104,77 @@ public:
 			return;
 		}
 
-		if (!x)
-			x = new Node(y->ValueField);
+		if (x == nullptr)
+			x = new Node(*y);
 		else
-			x->ValueField = y->ValueField;
+		{
+			delete x->ValueField;
+			x->Col = y->Col;
+			x->Size = y->Size;
+			x->ValueField = y->ValueField ? new value_type(*(y->ValueField)) : nullptr;
+		}
 
-		copy(x->Left, y->Left);
-		copy(x->Right, y->Right);
+		x->Fa = Fa;
+		(!Begin || (x->ValueField && cmpnode(x, Begin))) && (Begin = x);
+		(!x->ValueField) && (End = x);
+
+		copy(x->LT, y->LT, x, Begin, End);
+		copy(x->RT, y->RT, x, Begin, End);
+	}
+
+	static void get_pre(Node* &y)
+	{
+		if (y->LT)
+		{
+			y = y->LT;
+			while (y->RT)
+				y = y->RT;
+		}
+		else
+		{
+			while(y->Fa && y->Fa->LT == y)
+				y = y->Fa;
+
+			y = !y->Fa ? nullptr : y->Fa;
+		}
+	}
+
+	static void get_next(Node* &y)
+	{
+		// printf("yKey:%d RT:%d\n", y->Key(), y->RT);
+		if (y->RT)
+		{
+			y = y->RT;
+			// printf("y:%d %d\n", y->Key(), y->LT);
+			while (y->LT)
+				y = y->LT;
+		}
+		else
+		{
+			while(y->Fa && y->Fa->RT == y)
+				y = y->Fa;
+
+			y = !y->Fa ? nullptr : y->Fa;
+		}
 	}
 
 	RBTree (const RBTree &other)
 	{
 		cmp = other.cmp;
-		copy(Root, other.Root);
+		Root = Begin = End = nullptr;
+		copy(Root, other.Root, nullptr, Begin, End);
 	}
 
 	RBTree &operator= (const RBTree &other)
 	{
-		if (this == &other) return this;
+		if (this == &other) return *this;
 		cmp = other.cmp;
-		copy(Root, other.Root);
-		return this;
+		Begin = End = nullptr;
+		copy(Root, other.Root, nullptr, Begin, End);
+		return *this;
 	}
 
-    void Update(Node* const &x)
+    void update(Node* const &x)
     {
         x->Size = (x->LT ? x->LT->Size : 0) + (x->RT ? x->RT->Size : 0) + 1;
     }
@@ -129,7 +201,7 @@ public:
 
         RT->LT = x;
 
-        Update(x); Update(RT);
+        update(x); update(RT);
     }
 
     void right_rotate(Node* const &x)
@@ -153,7 +225,7 @@ public:
 
         LT->RT = x;
 
-        Update(x); Update(LT);
+        update(x); update(LT);
     }
 
     Node* find(const KeyType &Key, int ty = 0)
@@ -161,31 +233,31 @@ public:
         Node *x = Root, *Fa = nullptr;
         while (x)
         {
+			// if (x != End)
+			// 	printf("Key:%d %d %d\n", Key, x->Key(), cmpnode(x, Key));
             Fa = x;
-            if (!cmp(x->Key(), Key) && !cmp(Key, x->Key())) return x;
-            x = cmp(x->Key(), Key) ? x->RT : x-> LT;
+            if (x != End && !cmpnode(x, Key) && !cmpnode(Key, x)) return x;
+            x = cmpnode(x, Key) ? x->RT : x-> LT;
         }
 
         return ty ? Fa : nullptr;
     }
 
-    std :: pair<Node*, bool> insert(const KeyType &Key, const T &Val)
+    std :: pair <Node*, bool> insert(const KeyType &Key, const T &Val)
     {
 		Node* Fa = find(Key, 1);
-		if (!cmp(Fa->Key(), Key) && !cmp(Key, Fa->Key()))
+		
+		if (Fa && Fa != End && !cmpnode(Fa, Key) && !cmpnode(Key, Fa))
 			return std :: make_pair(Fa, 0);
 
-        Node *x = new Node(Key, Val), *pos = x;
-
-		if (Begin == End || cmp(Key, Begin->Key()))
+        Node *x = new Node(Key, Val);
+		Node *ans = x;
+		if (cmpnode(Key, Begin))
 			Begin = x;
-
-		if (!End->LT || cmp(End->LT->Key(), Key))
-			End->LT = x;
 
         x->Fa = Fa;
         if (Fa)
-            if (cmp(Fa->Key(), Key))
+            if (cmpnode(Fa, Key))
                 Fa->RT = x;
             else
                 Fa->LT = x;
@@ -233,15 +305,13 @@ public:
         if (!Fa && x->Col == Red)
             x->Col = Black;
 
-		return std :: make_pair(pos, 1);
+		return std :: make_pair(ans, 1);
     }
 
-    void erase(const KeyType &Key)
+    bool erase(Node* &x)
     {
-        Node *x = find(Key);
-		if (!x) return;
-
-		// if (x == Begin)
+		if (x == Begin)
+			get_next(Begin);
 
         Node *Fa = x->Fa, *p = nullptr;
         bool DelCol = x->Col;
@@ -314,7 +384,11 @@ public:
             x->LT->Fa = y;
             y->Col = x->Col;
             y->Size = x->Size;
+
         }
+
+		x->LT = x->RT = nullptr;
+		delete x;
 
         Node *y = Fa;
         while (y)
@@ -399,67 +473,40 @@ public:
             if (x)
                 x->Col = Black;
         }
+		return 1;
     }
 
-	Node* get_pre(const Node* &x)
-    {
-		if (x == Begin)
-			return nullptr;
-
-        Node* y = x;
-		if (y->LT)
+	void dfs(Node* x)
+	{
+		if (!x) return;
+		// printf("x:%d\n", x->ValueField);
+		if (x->ValueField)
 		{
-			y = y->LT;
-			while (y->RT)
-				y = y->RT;
+			printf("x:%d ", x->Key(), x->Fa);
+			if (x == Root)
+				printf("Root\n");
+			else
+				if (x->Fa->ValueField)
+					printf("%d\n", x->Fa->Key());
+				else
+					printf("END\n");		
 		}
 		else
-		{
-			while(y->Fa && y->Fa->LT == y)
-				y = y->Fa;
-
-			y = (y == Root) ? nullptr : y->Fa;
-		}
-
-		return y;
-    }
-
-	Node* get_next(const Node* &x)
-    {
-		if (x == End)
-			return nullptr;
-
-        Node* y = x;
-		if (y->RT)
-		{
-			y = y->RT;
-			while (y->LT)
-				y = y->LT;
-		}
-		else
-		{
-			while(y->Fa && y->Fa->RT == y)
-				y = y->Fa;
-
-			y = (y == Root) ? End : y->Fa;
-		}
-
-		return y;
-    }
+			printf("END\n");
+		// puts("?????????");
+		dfs(x->LT); dfs(x->RT);
+	}
 };
-
-
 
 template<
 	class Key,
 	class T,
 	class Compare
-> 
-class map {
+> class map {
 	typedef RBTree<Key, T, Compare> RBT;
 	typedef typename RBT :: Node Node;
 private:
-	RBT Tr;
+	RBT* Tr;
 public:
 	/**
 	 * the internal type of data.
@@ -476,171 +523,279 @@ public:
 	 */
 	class const_iterator;
 	class iterator {
-	private:
-		Node* pos;
 		/**
 		 * TODO add data members
 		 *   just add whatever you want.
 		 */
 	public:
+		Node *Ptr;
 		iterator() {
-			// TODO
+			Ptr = nullptr;
 		}
+
+		iterator(Node* const &node)
+		{
+			Ptr = node;
+		}
+
 		iterator(const iterator &other) {
-			// TODO
+			Ptr = other.Ptr;
 		}
+		
 		/**
 		 * TODO iter++
 		 */
-		iterator operator++(int) {}
+		iterator operator++(int) 
+		{
+			iterator tmp = *this;
+			if (Ptr) RBT :: get_next(Ptr);
+			if (!Ptr) throw invalid_iterator();
+			return tmp;
+		}
 		/**
 		 * TODO ++iter
 		 */
-		iterator & operator++() {}
+		iterator & operator++() 
+		{
+			if (Ptr) RBT :: get_next(Ptr);
+			if (!Ptr) throw invalid_iterator();
+			return *this;
+		}
 		/**
 		 * TODO iter--
 		 */
-		iterator operator--(int) {}
+		iterator operator--(int)
+		{
+			iterator tmp = *this;
+			if (Ptr) RBT :: get_pre(Ptr);
+			if (!Ptr) throw invalid_iterator();
+			return tmp;
+		}
 		/**
 		 * TODO --iter
 		 */
-		iterator & operator--() {}
+		iterator & operator--()
+		{
+			if (Ptr) RBT :: get_pre(Ptr);
+			if (!Ptr) throw invalid_iterator();
+			return *this;
+		}
 		/**
 		 * an operator to check whether two iterators are same (pointing to the same memory).
 		 */
-		value_type & operator*() const {}
-		bool operator==(const iterator &rhs) const {}
-		bool operator==(const const_iterator &rhs) const {}
+		value_type & operator*() const {return *(Ptr->ValueField);}
+		bool operator==(const iterator &rhs) const {return Ptr == rhs.Ptr;}
+		bool operator==(const const_iterator &rhs) const {return Ptr == rhs.Ptr;}
 		/**
 		 * some other operator for iterator.
 		 */
-		bool operator!=(const iterator &rhs) const {}
-		bool operator!=(const const_iterator &rhs) const {}
+		bool operator!=(const iterator &rhs) const {return Ptr != rhs.Ptr;}
+		bool operator!=(const const_iterator &rhs) const {return Ptr != rhs.Ptr;}
 
 		/**
 		 * for the support of it->first. 
 		 * See <http://kelvinh.github.io/blog/2013/11/20/overloading-of-member-access-operator-dash-greater-than-symbol-in-cpp/> for help.
 		 */
-		value_type* operator->() const noexcept {}
+		value_type* operator->() const noexcept {return &*(Ptr->ValueField);}
 	};
 	class const_iterator {
-		// it should has similar member method as iterator.
-		//  and it should be able to construct from an iterator.
-		private:
-			// data members.
-		public:
-			const_iterator() {
-				// TODO
-			}
-			const_iterator(const const_iterator &other) {
-				// TODO
-			}
-			const_iterator(const iterator &other) {
-				// TODO
-			}
-			// And other methods in iterator.
-			// And other methods in iterator.
-			// And other methods in iterator.
-			iterator operator++(int) {}
-			/**
-			 * TODO ++iter
-			 */
-			iterator & operator++() {}
-			/**
-			 * TODO iter--
-			 */
-			iterator operator--(int) {}
-			/**
-			 * TODO --iter
-			 */
-			iterator & operator--() {}
-			/**
-			 * an operator to check whether two iterators are same (pointing to the same memory).
-			 */
-			value_type & operator*() const {}
-			bool operator==(const iterator &rhs) const {}
-			bool operator==(const const_iterator &rhs) const {}
-			/**
-			 * some other operator for iterator.
-			 */
-			bool operator!=(const iterator &rhs) const {}
-			bool operator!=(const const_iterator &rhs) const {}
+		/**
+		 * TODO add data members
+		 *   just add whatever you want.
+		 */
+	public:
+		Node* Ptr;
+		const_iterator() {
+			Ptr = nullptr;
+			// TODO
+		}
 
-			/**
-			 * for the support of it->first. 
-			 * See <http://kelvinh.github.io/blog/2013/11/20/overloading-of-member-access-operator-dash-greater-than-symbol-in-cpp/> for help.
-			 */
-			value_type* operator->() const noexcept {}
+		const_iterator(Node* const &node)
+		{
+			Ptr = node;
+		}
+
+		const_iterator(const iterator &other) {
+			Ptr = other.Ptr;
+			// TODO
+		}
+
+		const_iterator(const const_iterator &other) {
+			Ptr = other.Ptr;
+			// TODO
+		}
+		
+		/**
+		 * TODO iter++
+		 */
+		const_iterator operator++(int) 
+		{
+			const_iterator tmp = *this;
+			if (Ptr) RBT :: get_next(Ptr);
+			if (!Ptr) throw invalid_iterator();
+			return tmp;
+		}
+		/**
+		 * TODO ++iter
+		 */
+		const_iterator & operator++() 
+		{
+			if (Ptr) RBT :: get_next(Ptr);
+			if (!Ptr) throw invalid_iterator();
+			return *this;
+		}
+		/**
+		 * TODO iter--
+		 */
+		const_iterator operator--(int)
+		{
+			const_iterator tmp = *this;
+			if (Ptr) RBT :: get_pre(Ptr);
+			if (!Ptr) throw invalid_iterator();
+			return tmp;
+		}
+		/**
+		 * TODO --iter
+		 */
+		const_iterator & operator--()
+		{
+			if (Ptr) RBT :: get_pre(Ptr);
+			if (!Ptr) throw invalid_iterator();
+			return *this;
+		}
+		/**
+		 * an operator to check whether two iterators are same (pointing to the same memory).
+		 */
+		value_type & operator*() const {return *(Ptr->ValueField);}
+		bool operator==(const iterator &rhs) const {return Ptr == rhs.Ptr;}
+		bool operator==(const const_iterator &rhs) const {return Ptr == rhs.Ptr;}
+		/**
+		 * some other operator for iterator.
+		 */
+		bool operator!=(const iterator &rhs) const {return Ptr != rhs.Ptr;}
+		bool operator!=(const const_iterator &rhs) const {return Ptr != rhs.Ptr;}
+
+		/**
+		 * for the support of it->first. 
+		 * See <http://kelvinh.github.io/blog/2013/11/20/overloading-of-member-access-operator-dash-greater-than-symbol-in-cpp/> for help.
+		 */
+		value_type* operator->() const noexcept {return &*(Ptr->ValueField);}
 	};
 	/**
 	 * TODO two constructors
 	 */
-	map() {}
-	map(const map &other) {}
+	map() {Tr = new RBT();}
+	map(const map &other) 
+	{
+		Tr = new RBT(*(other.Tr));
+	}
 	/**
 	 * TODO assignment operator
 	 */
-	map & operator=(const map &other) {}
+	map & operator=(const map &other) 
+	{
+		if (this == &other)
+			return *this;
+
+		*Tr = *other.Tr;
+
+		return *this;
+	}
 	/**
 	 * TODO Destructors
 	 */
-	~map() {}
+	~map() {delete Tr;}
 	/**
 	 * TODO
 	 * access specified element with bounds checking
 	 * Returns a reference to the mapped value of the element with key equivalent to key.
 	 * If no such element exists, an exception of type `index_out_of_bound'
 	 */
-	T & at(const Key &key) {}
-	const T & at(const Key &key) const {}
+	T & at(const Key &key) 
+	{
+		Node* Ptr = Tr->find(key);
+		if (!Ptr) throw index_out_of_bound();
+		return Ptr->Val();
+	}
+	const T & at(const Key &key) const 
+	{
+		Node* Ptr = Tr->find(key);
+		if (!Ptr) throw index_out_of_bound();
+		return Ptr->Val();
+	}
 	/**
 	 * TODO
 	 * access specified element 
 	 * Returns a reference to the value that is mapped to a key equivalent to key,
 	 *   performing an insertion if such key does not already exist.
 	 */
-	T & operator[](const Key &key) {}
+	T & operator[](const Key &key) 
+	{
+		Node* Ptr = Tr->find(key);
+		return Ptr ? Ptr->Val() : Tr->insert(key, T()).first->Val();
+	}
 	/**
 	 * behave like at() throw index_out_of_bound if such key does not exist.
 	 */
-	const T & operator[](const Key &key) const {}
+	const T & operator[](const Key &key) const 
+	{
+		Node* Ptr = Tr->find(key);
+		if (!Ptr) throw index_out_of_bound();
+		return Ptr->Val();
+	}
 	/**
 	 * return a iterator to the beginning
 	 */
-	iterator begin() {}
-	const_iterator cbegin() const {}
+	iterator begin() {return iterator(Tr->Begin);}
+	const_iterator cbegin() const {return const_iterator(Tr->Begin);}
 	/**
 	 * return a iterator to the end
 	 * in fact, it returns past-the-end.
 	 */
-	iterator end() {}
-	const_iterator cend() const {}
+	iterator end() {return iterator(Tr->End);}
+	const_iterator cend() const {return const_iterator(Tr->End);}
 	/**
 	 * checks whether the container is empty
 	 * return true if empty, otherwise false.
 	 */
-	bool empty() const {}
+	bool empty() const {return !(Tr->Root->get_size() - 1);}
 	/**
 	 * returns the number of elements.
 	 */
-	size_t size() const {}
+	size_t size() const {return Tr->Root->get_size() - 1;}
 	/**
 	 * clears the contents
 	 */
-	void clear() {}
+	void clear() {delete Tr; Tr = new RBT;}
 	/**
 	 * insert an element.
 	 * return a pair, the first of the pair is
 	 *   the iterator to the new element (or the element that prevented the insertion), 
 	 *   the second one is true if insert successfully, or false.
 	 */
-	pair<iterator, bool> insert(const value_type &value) {}
+	pair<iterator, bool> insert(const value_type &value) 
+	{
+		std :: pair<Node*, bool> ans = Tr->insert(value.first, value.second);
+		return pair<iterator, bool>(iterator(ans.first), ans.second);
+	}
 	/**
 	 * erase the element at pos.
 	 *
 	 * throw if pos pointed to a bad element (pos == this->end() || pos points an element out of this)
 	 */
-	void erase(iterator pos) {}
+	void erase(iterator pos) 
+	{
+		if (pos.Ptr && pos.Ptr != Tr->End && Tr->find(pos.Ptr->Key()) == pos.Ptr)
+			Tr->erase(pos.Ptr);
+		else 
+			throw invalid_iterator();
+	}
+
+	void dfs()
+	{
+		Tr->dfs(Tr->Root);
+	}
+
 	/**
 	 * Returns the number of elements with key 
 	 *   that compares equivalent to the specified argument,
@@ -648,15 +803,23 @@ public:
 	 *     since this container does not allow duplicates.
 	 * The default method of check the equivalence is !(a < b || b > a)
 	 */
-	size_t count(const Key &key) const {}
+	size_t count(const Key &key) const {return Tr->find(key) != nullptr;}
 	/**
-	 * Finds an element with key equivalent to key.
+	 * finds an element with key equivalent to key.
 	 * key value of the element to search for.
 	 * Iterator to an element with key equivalent to key.
 	 *   If no such element is found, past-the-end (see end()) iterator is returned.
 	 */
-	iterator find(const Key &key) {}
-	const_iterator find(const Key &key) const {}
+	iterator find(const Key &key) 
+	{
+		Node* ans = Tr->find(key);
+		return iterator(ans ? ans : Tr->End);
+	}
+	const_iterator find(const Key &key) const 
+	{
+		Node* ans = Tr->find(key);
+		return const_iterator(ans ? ans : Tr->End);
+	}
 };
 
 }

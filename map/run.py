@@ -2,7 +2,7 @@
 
 import os
 
-name = ('one', 'two', 'three', 'four', 'five')
+name = ('one', 'two', 'three', 'four', 'five', 'six', 'seven')
 
 pwd = ''
 
@@ -10,13 +10,13 @@ pwd = ''
 def run_Case(id):
     os.system('pwd')
     os.system('g++ -O2 -std=c++11 code.cpp -I../.. -o code')
-    os.system('./code > my.out')
+    os.system('time ./code > my.out')
     return os.system('diff -w my.out answer.txt > log.out') == 0
 
 
 def run_Case_memcheck(id):
     os.system('g++ -O2 -std=c++11 code.cpp -I../.. -o code')
-    os.system('./code > my.out')
+    os.system('time ./code > my.out')
     return os.system('diff -w my.out answer.txt > log.out') == 0
 
 
@@ -29,7 +29,7 @@ def Clean():
 def run():
     os.chdir(os.getcwd() + '/data')
 
-    for i in range(5):
+    for i in range(3, 4):
 
         os.chdir(os.getcwd() + '/' + name[i])
 
