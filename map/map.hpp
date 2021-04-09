@@ -99,21 +99,11 @@ public:
 	{
 		if (!y)
 		{
-			delete x;
 			x = nullptr;
 			return;
 		}
 
-		if (x == nullptr)
-			x = new Node(*y);
-		else
-		{
-			delete x->ValueField;
-			x->Col = y->Col;
-			x->Size = y->Size;
-			x->ValueField = y->ValueField ? new value_type(*(y->ValueField)) : nullptr;
-		}
-
+        x = new Node(*y);
 		x->Fa = Fa;
 		(!Begin || (x->ValueField && cmpnode(x, Begin))) && (Begin = x);
 		(!x->ValueField) && (End = x);
@@ -169,7 +159,7 @@ public:
 	{
 		if (this == &other) return *this;
 		cmp = other.cmp;
-		Begin = End = nullptr;
+		Begin = End = nullptr; delete Root;
 		copy(Root, other.Root, nullptr, Begin, End);
 		return *this;
 	}
@@ -475,27 +465,6 @@ public:
         }
 		return 1;
     }
-
-	void dfs(Node* x)
-	{
-		if (!x) return;
-		// printf("x:%d\n", x->ValueField);
-		if (x->ValueField)
-		{
-			printf("x:%d ", x->Key(), x->Fa);
-			if (x == Root)
-				printf("Root\n");
-			else
-				if (x->Fa->ValueField)
-					printf("%d\n", x->Fa->Key());
-				else
-					printf("END\n");		
-		}
-		else
-			printf("END\n");
-		// puts("?????????");
-		dfs(x->LT); dfs(x->RT);
-	}
 };
 
 template<
@@ -596,7 +565,7 @@ public:
 		 * for the support of it->first. 
 		 * See <http://kelvinh.github.io/blog/2013/11/20/overloading-of-member-access-operator-dash-greater-than-symbol-in-cpp/> for help.
 		 */
-		value_type* operator->() const noexcept {return &*(Ptr->ValueField);}
+		value_type* operator->() const noexcept {return Ptr->ValueField;}
 	};
 	class const_iterator {
 		/**
@@ -679,7 +648,7 @@ public:
 		 * for the support of it->first. 
 		 * See <http://kelvinh.github.io/blog/2013/11/20/overloading-of-member-access-operator-dash-greater-than-symbol-in-cpp/> for help.
 		 */
-		value_type* operator->() const noexcept {return &*(Ptr->ValueField);}
+		value_type* operator->() const noexcept {return Ptr->ValueField;}
 	};
 	/**
 	 * TODO two constructors
@@ -731,8 +700,7 @@ public:
 	 */
 	T & operator[](const Key &key) 
 	{
-		Node* Ptr = Tr->find(key);
-		return Ptr ? Ptr->Val() : Tr->insert(key, T()).first->Val();
+		return Tr->insert(key, T()).first->Val();
 	}
 	/**
 	 * behave like at() throw index_out_of_bound if such key does not exist.

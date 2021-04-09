@@ -29,7 +29,7 @@ def Clean():
 def run():
     os.chdir(os.getcwd() + '/data')
 
-    for i in range(3, 4):
+    for i in range(7):
 
         os.chdir(os.getcwd() + '/' + name[i])
 
