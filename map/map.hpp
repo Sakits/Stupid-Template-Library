@@ -87,7 +87,7 @@ public:
 			ans1 = ans.first;
 			x->pre = ans.second;
 			x->LT->Fa = x;
-			(x->pre) && (x->pre->nxt = x);
+			x->pre->nxt = x;
 		}
 		if (y->RT)
 		{
@@ -95,7 +95,7 @@ public:
 			x->nxt = ans.first;
 			ans2 = ans.second;
 			x->RT->Fa = x;
-			(x->nxt) && (x->nxt->pre = x);
+			x->nxt->pre = x;
 		}
 
 		return std :: pair<Node*, Node*>(ans1 ? ans1 : x, ans2 ? ans2 : x);
