@@ -35,7 +35,8 @@ namespace sjtu
 
 			Node() = delete;
 
-			Node(const KeyType &_Key, const T &_Val, const bool _Col = Red) : ValueField(value_type(_Key, _Val)), Col(_Col), LT(nullptr), RT(nullptr), Fa(nullptr), nxt(nullptr), pre(nullptr) {}
+			Node(const KeyType &_Key, const T &_Val, const bool _Col = Red)
+				: ValueField(value_type(_Key, _Val)), Col(_Col), LT(nullptr), RT(nullptr), Fa(nullptr), nxt(nullptr), pre(nullptr) {}
 
 			Node(const Node *const &other)
 				: LT(nullptr), RT(nullptr), Fa(nullptr), nxt(nullptr), pre(nullptr), Col(other->Col), ValueField(other->ValueField) {}
